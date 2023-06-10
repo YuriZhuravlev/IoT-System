@@ -1,14 +1,11 @@
-val ktor_version: String by project
-val kotlin_version: String by project
-val logback_version: String by project
+val ktor_version: String by rootProject
+val kotlin_version: String by rootProject
+val logback_version: String by rootProject
 
 plugins {
-    kotlin("jvm") version "1.8.22"
-    id("io.ktor.plugin") version "2.3.1"
+    application
+    kotlin("jvm")
 }
-
-group = "ru.zhuravlev.yuri"
-version = "0.0.1"
 
 application {
     mainClass.set("ru.zhuravlev.yuri.ApplicationKt")

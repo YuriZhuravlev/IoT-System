@@ -1,0 +1,13 @@
+pluginManagement {
+    repositories {
+        mavenCentral()
+    }
+}
+
+rootProject.name = "iot-system"
+
+include(
+        "server",
+        "core.common",
+        "core.model"
+)
