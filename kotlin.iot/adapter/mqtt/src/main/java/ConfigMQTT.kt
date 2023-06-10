@@ -1,0 +1,20 @@
+package ru.zhuravlev.yuri.adapter.mqtt
+
+import com.ditchoom.mqtt.controlpacket.Topic
+import com.ditchoom.mqtt5.controlpacket.Subscription
+
+object ConfigMQTT {
+    object Publisher {
+        const val CONFIGURATION_TEMPERATURE = "configuration_temperature"
+    }
+
+    object Subscriptions {
+        private const val TEMPERATURE = "temperature"
+        private const val WATER_LEVEL = "water_level"
+        private const val PIR = "pir"
+
+        val temperature by lazy { Subscription(Topic.fromOrThrow(TEMPERATURE, Topic.Type.Name)) }
+        val waterLevel by lazy { Subscription(Topic.fromOrThrow(WATER_LEVEL, Topic.Type.Name)) }
+        val pit by lazy { Subscription(Topic.fromOrThrow(PIR, Topic.Type.Name)) }
+    }
+}

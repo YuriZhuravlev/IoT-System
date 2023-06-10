@@ -8,6 +8,7 @@ rootProject.name = "iot-system"
 
 include(
         "server",
-        "core.common",
-        "core.model"
+        "core:common",
+        "core:model",
+        "adapter:mqtt"
 )
