@@ -1,0 +1,24 @@
+title: Получение текущих данных
+
+
+Server --> Device 1: getInfo()
+Server --> Device 2: getInfo()
+
+note:
+**Получение текущих данных** запускается по _heartbeat_, либо при явном запросе клиента.
+
+_Device 1_ - устройство с датчиком температуры и уровня воды
+
+_Device 2_ - устройство с датчиком движения и динамиком
+
+
+Device 1 -> Device 1: getSensorInfo()
+
+Device 2 -> Device 2: getSensorInfo()
+
+
+Device 1 --> Server: info[]
+Device 2 --> Server: info[]
+
+Server -> Client: updateInfo()
+Client -> Client: updateState()

@@ -1,0 +1,25 @@
+title: Превышение заданной температуры
+
+Device 1 -> Device 1: checkSensor()
+Device 1 --> Server: alert(info)
+
+note:
+**Превышение заданной температуры** - превышение температурой значения Tn - n-ого элемента массива T. Достижение последней температуры считается завершением процесса и сигнализируется финальными сигналами для клиента.
+
+_Device 1_ - устройство с датчиком температуры и уровня воды
+
+_Device 2_ - устройство с датчиком движения и динамиком
+
+
+Server --> Client: notification(info)
+Server --> Device 2: alert(type)
+if: Замечено движение
+	Device 2 -> Device 2: notifyWithUser()
+else:
+	Device 2 -> Device 2: notifyWithoutUser()
+end
+
+
+if: Температура последняя
+	Server --> Server: end
+end

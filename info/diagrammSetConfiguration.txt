@@ -1,0 +1,21 @@
+title: Создание конфигурации
+
+Client -> Server: setConfiguration()
+
+note:
+**Создание конфигурации** - при начале работы клиент отправляет параметры режима работы.
+
+_Device 1_ - устройство с датчиком температуры и уровня воды
+
+_Device 2_ - устройство с датчиком движения и динамиком
+
+
+Server --> Device 1: setConfiguration()
+note: Максимальный уровень воды и точки сигнализации о температуре
+Server --> Device 2: setConfiguration()
+Server --> Server: start getInfo()
+note: Запуск автоматического получения информации
+Device 1 --> Server: info[]
+Device 2 --> Server: info[]
+
+Server -> Client: success
