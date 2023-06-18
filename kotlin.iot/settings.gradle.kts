@@ -10,5 +10,6 @@ include(
         "server",
         "core:common",
         "core:model",
-        "adapter:mqtt"
+        "adapter:mqtt",
+        "controller"
 )
