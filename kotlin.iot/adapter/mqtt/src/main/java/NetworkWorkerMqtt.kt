@@ -1,85 +1,127 @@
 package ru.zhuravlev.yuri.adapter.mqtt
 
-import com.ditchoom.buffer.AllocationZone
-import com.ditchoom.buffer.PlatformBuffer
-import com.ditchoom.buffer.allocate
+import com.ditchoom.mqtt.client.MqttClient
 import com.ditchoom.mqtt.client.MqttService
 import com.ditchoom.mqtt.connection.MqttConnectionOptions
-import com.ditchoom.mqtt.controlpacket.QualityOfService
+import com.ditchoom.mqtt.controlpacket.IPublishMessage
 import com.ditchoom.mqtt5.controlpacket.ConnectionRequest
-import kotlinx.coroutines.CoroutineExceptionHandler
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import ru.zhuravlev.yuri.core.BuildConfig
+import ru.zhuravlev.yuri.core.NetworkWorker
+import ru.zhuravlev.yuri.core.model.ConfigurationTemperature
+import ru.zhuravlev.yuri.core.model.UserSignal
 
-class NetworkWorkerMqtt {
-    private val context = CoroutineScope(SupervisorJob())
+class NetworkWorkerMqtt : NetworkWorker {
+    private val context = CoroutineScope(
+            SupervisorJob() +
+                    Dispatchers.IO +
+                    CoroutineExceptionHandler { _, throwable -> handler?.onError(throwable) }
+    )
+    private val mapper = Mapper()
+    private val subscriptions by lazy {
+        setOf(
+                ConfigMQTT.Subscriptions.pit,
+                ConfigMQTT.Subscriptions.temperature,
+                ConfigMQTT.Subscriptions.waterLevel
+        )
+    }
 
-    fun subscribe(onMessage: () -> Unit, onError: (Throwable) -> Unit) {
-        context.launch(CoroutineExceptionHandler { _, throwable -> onError(throwable) }) {
-            val service = MqttService.buildNewService(ipcEnabled = true, androidContextOrAbstractWorker = null)
+    private var _client: MqttClient? = null
+    private var handler: NetworkWorker.MessageHandler? = null
 
-            val socketEndPoint = MqttConnectionOptions.SocketConnection(host, port)
-            val connections = listOf(socketEndPoint)
-            val clientId = BuildConfig.getString(SERVER_CLIENT_ID)
-            val username = BuildConfig.getString(SERVER_USERNAME)
-            val password = BuildConfig.getString(SERVER_PASSWORD)
-            if (clientId == null || username == null || password == null) {
-                onError(Exception("Properties for server config not found"))
-            } else {
-                val connectionRequest = ConnectionRequest(clientId = clientId, userName = username, password = password)
-                val client = service.addBrokerAndStartClient(connections, connectionRequest)
+    private val mutex = Mutex()
 
-                val subscribeOperation = client.subscribe(
-                        setOf(
-                                ConfigMQTT.Subscriptions.pit,
-                                ConfigMQTT.Subscriptions.temperature,
-                                ConfigMQTT.Subscriptions.waterLevel
-                        )
-                )
+    override fun subscribe(onMessage: NetworkWorker.MessageHandler) {
+        context.launch {
+            val subscribeOperation = mutex.withLock {
+                val client = initClient()
+                client.subscribe(subscriptions)
+            }
 
-                subscribeOperation.subscriptions.map {
-                    it.value
+            subscribeOperation.subscriptions.forEach { (key, flow) ->
+                when (key) {
+                    ConfigMQTT.Subscriptions.pit -> {
+                        launch {
+                            subscribeAndParse(flow, onMessage::onPassiveInfraredSensor)
+                        }
+                    }
+
+                    ConfigMQTT.Subscriptions.temperature -> {
+                        launch {
+                            subscribeAndParse(flow, onMessage::onTemperature)
+                        }
+                    }
+
+                    ConfigMQTT.Subscriptions.waterLevel -> {
+                        launch {
+                            subscribeAndParse(flow, onMessage::onWaterLevel)
+                        }
+                    }
                 }
             }
         }
     }
 
-    suspend fun connect() {
-        val service = MqttService.buildNewService(ipcEnabled = true, androidContextOrAbstractWorker = null, inMemory = false)
+    override fun unsubscribe() {
+        context.launch {
+            mutex.withLock {
+                _client?.unsubscribe(subscriptions.map { it.topicFilter }.toSet())
+                _client?.shutdown()
+                _client = null
+            }
+        }
+    }
+
+    override fun publish(configurationTemperature: ConfigurationTemperature) {
+        context.launch {
+            mutex.withLock {
+                val client = _client ?: initClient()
+                client.publish(
+                        ConfigMQTT.Publisher.CONFIGURATION_TEMPERATURE,
+                        payload = mapper.write(configurationTemperature)
+                )
+            }
+        }
+    }
+
+    override fun publish(signal: UserSignal) {
+        if (signal == UserSignal.BLEEPER) {
+            context.launch {
+                mutex.withLock {
+                    val client = _client ?: initClient()
+                    client.publish(ConfigMQTT.Publisher.BLEEPER)
+                }
+            }
+        }
+    }
+
+    private suspend fun initClient(): MqttClient {
+        val service = MqttService.buildNewService(ipcEnabled = true, androidContextOrAbstractWorker = null)
 
         val socketEndPoint = MqttConnectionOptions.SocketConnection(host, port)
-//        val wsEndpoint = MqttConnectionOptions.WebSocketConnectionOptions(host, port) maybe "ws://ws.dev.rightech.io"
         val connections = listOf(socketEndPoint)
         val clientId = BuildConfig.getString(SERVER_CLIENT_ID)
         val username = BuildConfig.getString(SERVER_USERNAME)
         val password = BuildConfig.getString(SERVER_PASSWORD)
-        if (clientId == null || username == null || password == null) {
+        if (clientId == null || username == null || password == null)
             throw Exception("Properties for server config not found")
-        }
+
         val connectionRequest = ConnectionRequest(clientId = clientId, userName = username, password = password)
-
         val client = service.addBrokerAndStartClient(connections, connectionRequest)
+        _client = client
+        return client
+    }
 
-        val subscribeOperation = client.subscribe("test/+", QualityOfService.AT_LEAST_ONCE) // TODO topicFilter
-
-
-        // optional, await for suback before proceeding
-        val subAck = subscribeOperation.subAck.await() // хз
-        // optional, subscribe to incoming publish on the topic
-        val topicFlow = subscribeOperation.subscriptions.values.first()
-
-        val payloadBuffer = PlatformBuffer.allocate(4, AllocationZone.SharedMemory)
-        //Cast to JvmBuffer/JsBuffer/DataBuffer and retrieve underlying ByteBuffer/ArrayBuffer/NSData to modify contents
-        payloadBuffer.writeString("taco") // just write utf8 string data for now
-        val pubOperation = client.publish("test/123", QualityOfService.EXACTLY_ONCE, payloadBuffer)
-        pubOperation.awaitAll() // suspend until
-
-        val unsubscribeOperation = client.unsubscribe("test/+")
-        unsubscribeOperation.unsubAck.await()
-
-        client.shutdown()
+    private suspend inline fun <reified T> subscribeAndParse(
+            flow: Flow<IPublishMessage>,
+            crossinline send: (T) -> Unit
+    ) {
+        flow.collect { message ->
+            mapper.map<T>(message.payload)?.run(send)
+        }
     }
 
     companion object {
