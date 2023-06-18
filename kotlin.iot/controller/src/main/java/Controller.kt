@@ -6,9 +6,13 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import ru.zhuravlev.yuri.core.NetworkWorker
+import ru.zhuravlev.yuri.core.PushSender
 import ru.zhuravlev.yuri.core.model.*
 
-class Controller(private val networkWorker: NetworkWorker) {
+class Controller(
+        private val networkWorker: NetworkWorker,
+        private val pushSender: PushSender
+) {
     private val context = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val _state = MutableStateFlow(SystemState.INIT)
     private val _error = MutableSharedFlow<Throwable>()
@@ -65,24 +69,26 @@ class Controller(private val networkWorker: NetworkWorker) {
                             if (systemState.pir.activeMoving) {
                                 networkWorker.publish(UserSignal.BLEEPER)
                             }
-                            sendPush(UserSignal.Push(newState))
+                            pushSender.sendPush(UserSignal.Push(newState))
                         }
 
                         systemState.waterLevel.value > ATTENTION_WATER_LEVEL -> {
-
-                            sendPush(UserSignal.Push(systemState))
+                            networkWorker.publish(UserSignal.BLEEPER)
+                            pushSender.sendPush(UserSignal.Push(systemState))
                         }
 
-                        systemState.waterLevel.value > NOTIFY_WATER_LEVEL -> sendPush(UserSignal.Push(systemState))
+                        systemState.waterLevel.value > NOTIFY_WATER_LEVEL -> pushSender.sendPush(UserSignal.Push(systemState))
                     }
                 }
             }
         }
     }
 
-    private fun sendPush(push: UserSignal.Push) {
-        println("Sending push: ${push.state}")
-        // TODO("add later")
+    fun setConfigTemperature(temperature: ConfigurationTemperature) {
+        context.launch {
+            networkWorker.publish(temperature)
+            _state.emit(_state.value.copy(configurationTemperature = temperature))
+        }
     }
 
     companion object {
