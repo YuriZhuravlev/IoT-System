@@ -14,18 +14,18 @@ class Mapper {
         try {
             when (T::class) {
                 PassiveInfraredSensor::class -> {
-                    val pir = payload?.readInt() == 1
+                    val pir = payload?.readByte()?.toInt() == 1
                     return PassiveInfraredSensor(pir) as T
                 }
 
                 Temperature::class -> {
-                    payload?.readInt()?.let { temperature ->
+                    payload?.readByte()?.toInt()?.let { temperature ->
                         return Temperature(temperature) as T
                     }
                 }
 
                 WaterLevel::class -> {
-                    payload?.readInt()?.let { percent ->
+                    payload?.readByte()?.toInt()?.let { percent ->
                         if (percent in 0..100)
                             return WaterLevel(percent) as T
                     }

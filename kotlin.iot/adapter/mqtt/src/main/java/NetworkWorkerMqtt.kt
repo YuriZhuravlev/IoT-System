@@ -23,7 +23,7 @@ class NetworkWorkerMqtt : NetworkWorker {
     private val mapper = Mapper()
     private val subscriptions by lazy {
         setOf(
-                ConfigMQTT.Subscriptions.pit,
+                ConfigMQTT.Subscriptions.pir,
                 ConfigMQTT.Subscriptions.temperature,
                 ConfigMQTT.Subscriptions.waterLevel
         )
@@ -43,7 +43,7 @@ class NetworkWorkerMqtt : NetworkWorker {
 
             subscribeOperation.subscriptions.forEach { (key, flow) ->
                 when (key) {
-                    ConfigMQTT.Subscriptions.pit -> {
+                    ConfigMQTT.Subscriptions.pir -> {
                         launch {
                             subscribeAndParse(flow, onMessage::onPassiveInfraredSensor)
                         }

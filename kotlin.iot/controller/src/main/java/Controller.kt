@@ -62,9 +62,11 @@ class Controller(
                 } else {
                     when {
                         systemState.configurationTemperature.lastIndex > systemState.temperatureIndex &&
-                                systemState.configurationTemperature.temperatures[systemState.temperatureIndex + 1] >= systemState.temperature -> {
-                            val newState = systemState.copy(temperatureIndex = systemState.temperatureIndex)
-                            _state.emit(newState)
+                                systemState.temperature >= systemState.configurationTemperature.temperatures[systemState.temperatureIndex + 1] -> {
+                            val newState = systemState.copy(temperatureIndex = systemState.temperatureIndex + 1)
+                            launch {
+                                _state.emit(newState)
+                            }
 
                             if (systemState.pir.activeMoving) {
                                 networkWorker.publish(UserSignal.BLEEPER)
