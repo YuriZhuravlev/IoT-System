@@ -1,0 +1,49 @@
+<html>
+<title>IoT System (Debug)</title>
+<body onload="initPage()">
+<h1>IoT System</h1>
+<a>Debug version</a>
+<div id="config_id">Current temperature config is ${config}</div>
+<a>Set Config:</a>
+<input type="text" id="config_input">
+<button id="config_btn" onclick="sendConfig(event)">Send</button>
+<br>
+<br>
+<br>Events:
+<div id="event_id">
+</div>
+<script>
+    async function initPage() {
+        let eventElement = document.getElementById("event_id");
+        let eventSource = new EventSource('/subscribe');
+        eventSource.addEventListener('state', e => {
+            const state = JSON.parse(e.data);
+            eventElement.insertAdjacentHTML('beforeend', "<br>" + new Date().toLocaleTimeString() + "\t state: " + e.data);
+        });
+        eventSource.addEventListener('error', e => {
+            const error = JSON.parse(e.data);
+            eventElement.insertAdjacentHTML('beforeend', "<br>" + new Date().toLocaleTimeString() + "\t error: " + error.error);
+        });
+    }
+
+    async function sendConfig(e) {
+        e.preventDefault();
+        let dataText = document.getElementById("config_input").value;
+        let data = new Int32Array(dataText.split(",")).sort().join()
+
+        let response = await fetch( "/config", {
+            method: 'POST',
+            body: JSON.stringify({temperature:data.split(',')})
+        });
+        let result = await response.ok;
+        console.log(response.status);
+        if (result) {
+            document.getElementById("config_id").textContent = "Current temperature config is " + data;
+        } else {
+            console.log(response.statusText);
+        }
+    }
+
+</script>
+</body>
+</html>

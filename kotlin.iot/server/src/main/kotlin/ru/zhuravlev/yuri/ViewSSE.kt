@@ -4,12 +4,11 @@ import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.channels.ReceiveChannel
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
-import kotlinx.coroutines.flow.produceIn
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -46,17 +45,22 @@ object ViewSSE {
             val systemData = SystemData(error = it.message)
             SseEvent(data = Json.encodeToString(systemData), EventType.ERROR_EVENT)
         }
-        call.respondSse(merge(state, error).produceIn(CoroutineScope(SupervisorJob())))
+        call.respondSse(merge(state, error))
     }
 
     suspend fun updateConfig(call: ApplicationCall) {
         try {
             val config = Json.decodeFromString<ConfigData>(call.receiveText())
-            controller.setConfigTemperature(
-                    ConfigurationTemperature(
-                            config.temperature.map { value -> Temperature(value) }
-                    )
-            )
+            if (config.temperature.find { element -> element < 0 || element > 100 } == null) {
+                controller.setConfigTemperature(
+                        ConfigurationTemperature(
+                                config.temperature.map { value -> Temperature(value) }
+                        )
+                )
+                call.respond(HttpStatusCode.OK)
+            } else {
+                call.respond(HttpStatusCode.BadRequest, "Invalid temperatures [0, 100]")
+            }
         } catch (e: Exception) {
             call.respond(HttpStatusCode.BadRequest, e.printStackTrace())
         }
@@ -66,21 +70,23 @@ object ViewSSE {
 
     data class SseEvent(val data: String, val event: String? = null, val id: String? = null)
 
-    suspend fun ApplicationCall.respondSse(events: ReceiveChannel<SseEvent>) {
+    private suspend fun ApplicationCall.respondSse(events: Flow<SseEvent>) {
         response.cacheControl(CacheControl.NoCache(null))
         respondTextWriter(contentType = ContentType.Text.EventStream) {
-            for (event in events) {
-                if (event.id != null) {
-                    write("id: ${event.id}\n")
+            events.collect { event ->
+                withContext(Dispatchers.IO) {
+                    if (event.id != null) {
+                        write("id: ${event.id}\n")
+                    }
+                    if (event.event != null) {
+                        write("event: ${event.event}\n")
+                    }
+                    for (dataLine in event.data.lines()) {
+                        write("data: $dataLine\n")
+                    }
+                    write("\n")
+                    flush()
                 }
-                if (event.event != null) {
-                    write("event: ${event.event}\n")
-                }
-                for (dataLine in event.data.lines()) {
-                    write("data: $dataLine\n")
-                }
-                write("\n")
-                flush()
             }
         }
     }
