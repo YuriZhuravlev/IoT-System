@@ -13,7 +13,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import ru.zhuravlev.yuri.core.BuildConfig
 
-class AdapterMqtt {
+class NetworkWorkerMqtt {
     private val context = CoroutineScope(SupervisorJob())
 
     fun subscribe(onMessage: () -> Unit, onError: (Throwable) -> Unit) {
