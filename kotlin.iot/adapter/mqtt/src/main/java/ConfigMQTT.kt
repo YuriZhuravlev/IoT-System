@@ -5,13 +5,14 @@ import com.ditchoom.mqtt5.controlpacket.Subscription
 
 object ConfigMQTT {
     object Publisher {
-        const val CONFIGURATION_TEMPERATURE = "configuration_temperature"
+        const val CONFIGURATION_TEMPERATURE = "config/configuration_temperature"
+        const val BLEEPER = "action/bleeper"
     }
 
     object Subscriptions {
-        private const val TEMPERATURE = "temperature"
-        private const val WATER_LEVEL = "water_level"
-        private const val PIR = "pir"
+        private const val TEMPERATURE = "state/temperature"
+        private const val WATER_LEVEL = "state/water_level"
+        private const val PIR = "state/pir"
 
         val temperature by lazy { Subscription(Topic.fromOrThrow(TEMPERATURE, Topic.Type.Name)) }
         val waterLevel by lazy { Subscription(Topic.fromOrThrow(WATER_LEVEL, Topic.Type.Name)) }
