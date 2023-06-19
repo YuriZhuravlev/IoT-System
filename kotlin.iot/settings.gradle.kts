@@ -11,5 +11,6 @@ include(
         "core:common",
         "core:model",
         "adapter:mqtt",
-        "controller"
+        "controller",
+        "device"
 )

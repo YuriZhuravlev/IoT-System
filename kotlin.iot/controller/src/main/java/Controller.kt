@@ -13,33 +13,38 @@ class Controller(
         private val networkWorker: NetworkWorker,
         private val pushSender: PushSender
 ) {
-    private val context = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val exceptionHandler = CoroutineExceptionHandler { _, throwable -> _error.tryEmit(throwable) }
+    private val context = CoroutineScope(SupervisorJob() + Dispatchers.IO + exceptionHandler)
     private val _state = MutableStateFlow(SystemState.INIT)
     private val _error = MutableSharedFlow<Throwable>()
     val state = _state.asStateFlow()
     val error = _error.asSharedFlow()
 
+    private fun CoroutineScope.supervisorLaunch(block: suspend CoroutineScope.() -> Unit) {
+        launch(context = SupervisorJob() + exceptionHandler, block = block)
+    }
+
     private val messageHandler = object : NetworkWorker.MessageHandler {
         override fun onTemperature(temperature: Temperature) {
-            context.launch {
+            context.supervisorLaunch {
                 _state.emit(_state.value.copy(temperature = temperature))
             }
         }
 
         override fun onPassiveInfraredSensor(pir: PassiveInfraredSensor) {
-            context.launch {
+            context.supervisorLaunch {
                 _state.emit(_state.value.copy(pir = pir))
             }
         }
 
         override fun onWaterLevel(waterLevel: WaterLevel) {
-            context.launch {
+            context.supervisorLaunch {
                 _state.emit(_state.value.copy(waterLevel = waterLevel))
             }
         }
 
         override fun onError(error: Throwable) {
-            context.launch {
+            context.supervisorLaunch {
                 _error.emit(error)
             }
         }
@@ -51,11 +56,7 @@ class Controller(
     }
 
     private fun startProducing() {
-        context.launch(CoroutineExceptionHandler { _, throwable ->
-            context.launch {
-                _error.emit(throwable)
-            }
-        }) {
+        context.supervisorLaunch {
             state.collect { systemState ->
                 if (systemState == SystemState.INIT || systemState.configurationTemperature.isEmpty()) {
                     // Skip state
@@ -87,7 +88,7 @@ class Controller(
     }
 
     fun setConfigTemperature(temperature: ConfigurationTemperature) {
-        context.launch {
+        context.supervisorLaunch {
             networkWorker.publish(temperature)
             _state.emit(_state.value.copy(configurationTemperature = temperature))
         }

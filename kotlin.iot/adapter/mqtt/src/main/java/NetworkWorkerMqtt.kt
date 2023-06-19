@@ -15,10 +15,11 @@ import ru.zhuravlev.yuri.core.model.ConfigurationTemperature
 import ru.zhuravlev.yuri.core.model.UserSignal
 
 class NetworkWorkerMqtt : NetworkWorker {
+    private val exceptionHandler = CoroutineExceptionHandler { _, throwable -> handler?.onError(throwable) }
     private val context = CoroutineScope(
             SupervisorJob() +
                     Dispatchers.IO +
-                    CoroutineExceptionHandler { _, throwable -> handler?.onError(throwable) }
+                    exceptionHandler
     )
     private val mapper = Mapper()
     private val subscriptions by lazy {
@@ -34,8 +35,13 @@ class NetworkWorkerMqtt : NetworkWorker {
 
     private val mutex = Mutex()
 
+    private fun CoroutineScope.supervisorLaunch(block: suspend CoroutineScope.() -> Unit) {
+        launch(context = SupervisorJob() + exceptionHandler, block = block)
+    }
+
     override fun subscribe(onMessage: NetworkWorker.MessageHandler) {
-        context.launch {
+        handler = onMessage
+        context.supervisorLaunch {
             val subscribeOperation = mutex.withLock {
                 val client = initClient()
                 client.subscribe(subscriptions)
@@ -44,19 +50,19 @@ class NetworkWorkerMqtt : NetworkWorker {
             subscribeOperation.subscriptions.forEach { (key, flow) ->
                 when (key) {
                     ConfigMQTT.Subscriptions.pir -> {
-                        launch {
+                        supervisorLaunch {
                             subscribeAndParse(flow, onMessage::onPassiveInfraredSensor)
                         }
                     }
 
                     ConfigMQTT.Subscriptions.temperature -> {
-                        launch {
+                        supervisorLaunch {
                             subscribeAndParse(flow, onMessage::onTemperature)
                         }
                     }
 
                     ConfigMQTT.Subscriptions.waterLevel -> {
-                        launch {
+                        supervisorLaunch {
                             subscribeAndParse(flow, onMessage::onWaterLevel)
                         }
                     }
@@ -66,7 +72,7 @@ class NetworkWorkerMqtt : NetworkWorker {
     }
 
     override fun unsubscribe() {
-        context.launch {
+        context.supervisorLaunch {
             mutex.withLock {
                 _client?.unsubscribe(subscriptions.map { it.topicFilter }.toSet())
                 _client?.shutdown()
@@ -76,7 +82,7 @@ class NetworkWorkerMqtt : NetworkWorker {
     }
 
     override fun publish(configurationTemperature: ConfigurationTemperature) {
-        context.launch {
+        context.supervisorLaunch {
             mutex.withLock {
                 val client = _client ?: initClient()
                 client.publish(
@@ -89,7 +95,7 @@ class NetworkWorkerMqtt : NetworkWorker {
 
     override fun publish(signal: UserSignal) {
         if (signal == UserSignal.BLEEPER) {
-            context.launch {
+            context.supervisorLaunch {
                 mutex.withLock {
                     val client = _client ?: initClient()
                     client.publish(ConfigMQTT.Publisher.BLEEPER)
@@ -120,7 +126,9 @@ class NetworkWorkerMqtt : NetworkWorker {
             crossinline send: (T) -> Unit
     ) {
         flow.collect { message ->
-            mapper.map<T>(message.payload)?.run(send)
+            supervisorScope {
+                mapper.map<T>(message.payload)?.run(send)
+            }
         }
     }
 

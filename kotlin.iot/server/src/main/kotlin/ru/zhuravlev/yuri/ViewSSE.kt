@@ -37,6 +37,7 @@ object ViewSSE {
             val systemData = SystemData(
                     state.temperature.value,
                     state.waterLevel.value,
+                    state.pir.activeMoving,
                     state.configurationTemperature.temperatures.getOrNull(state.temperatureIndex + 1)?.value
             )
             SseEvent(data = Json.encodeToString(systemData), EventType.STATE_EVENT)
@@ -45,7 +46,7 @@ object ViewSSE {
             val systemData = SystemData(error = it.message)
             SseEvent(data = Json.encodeToString(systemData), EventType.ERROR_EVENT)
         }
-        call.respondSse(merge(state, error))
+        call.respondSse(merge(error, state))
     }
 
     suspend fun updateConfig(call: ApplicationCall) {
