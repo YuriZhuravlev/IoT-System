@@ -2,36 +2,32 @@ package ru.zhuravlev.yuri.adapter.mqtt
 
 import com.ditchoom.buffer.JvmBuffer
 import com.ditchoom.buffer.ReadBuffer
-import com.ditchoom.mqtt.controlpacket.ControlPacket.Companion.readVariableByteInteger
 import ru.zhuravlev.yuri.core.model.ConfigurationTemperature
 import ru.zhuravlev.yuri.core.model.PassiveInfraredSensor
 import ru.zhuravlev.yuri.core.model.Temperature
 import ru.zhuravlev.yuri.core.model.WaterLevel
-import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
 
 class Mapper {
     inline fun <reified T> map(payload: ReadBuffer?): T? {
         try {
-            when (T::class) {
-                PassiveInfraredSensor::class -> {
-                    val pir = payload?.readVariableByteInteger()?.toInt() == 1
-                    return PassiveInfraredSensor(pir) as T
-                }
+            if (payload != null)
+                when (T::class) {
+                    PassiveInfraredSensor::class -> {
+                        val pir = payload.readUtf8Line().toString().toInt()
+                        return PassiveInfraredSensor(pir == 1) as T
+                    }
 
-                Temperature::class -> {
-                    payload?.readVariableByteInteger()?.toInt()?.let { temperature ->
+                    Temperature::class -> {
+                        val temperature = payload.readUtf8Line().toString().toInt()
                         return Temperature(temperature) as T
                     }
-                }
 
-                WaterLevel::class -> {
-                    payload?.readVariableByteInteger()?.toInt()?.let { percent ->
-                        if (percent in 0..100)
-                            return WaterLevel(percent) as T
+                    WaterLevel::class -> {
+                        val waterLevel = payload.readUtf8Line().toString().toInt()
+                        return WaterLevel(waterLevel) as T
                     }
                 }
-            }
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -39,10 +35,7 @@ class Mapper {
     }
 
     fun write(configurationTemperature: ConfigurationTemperature): ReadBuffer {
-        val stream = ByteArrayOutputStream()
-        configurationTemperature.temperatures.forEach {
-            stream.write(it.value)
-        }
-        return JvmBuffer(ByteBuffer.wrap(stream.toByteArray()))
+        val stringConfig = configurationTemperature.temperatures.joinToString(prefix = "[", postfix = "]") { temperature -> temperature.value.toString() }
+        return JvmBuffer(ByteBuffer.wrap(stringConfig.toByteArray()))
     }
 }
