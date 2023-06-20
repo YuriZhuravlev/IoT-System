@@ -5,8 +5,13 @@ import com.ditchoom.buffer.ReadBuffer
 import com.ditchoom.mqtt.client.MqttClient
 import com.ditchoom.mqtt.client.MqttService
 import com.ditchoom.mqtt.connection.MqttConnectionOptions
+import com.ditchoom.mqtt.controlpacket.ControlPacket.Companion.readVariableByteInteger
+import com.ditchoom.mqtt.controlpacket.IPublishMessage
+import com.ditchoom.mqtt.controlpacket.Topic
 import com.ditchoom.mqtt5.controlpacket.ConnectionRequest
+import com.ditchoom.mqtt5.controlpacket.Subscription
 import kotlinx.coroutines.*
+import ru.zhuravlev.yuri.adapter.mqtt.ConfigMQTT
 import ru.zhuravlev.yuri.core.BuildConfig
 import ru.zhuravlev.yuri.emulator.producers.PirProducer
 import ru.zhuravlev.yuri.emulator.producers.TemperatureProducer
@@ -64,8 +69,45 @@ class DeviceEmulator(emulateDevice1: Boolean, emulateDevice2: Boolean) {
                         client2?.publish(PIR, payload = writeInt(if (it) 1 else 0))
                     }
                 }
+                context.launch(SupervisorJob()) {
+                    val config = Subscription(
+                            Topic.fromOrThrow(
+                                    ConfigMQTT.Publisher.CONFIGURATION_TEMPERATURE,
+                                    Topic.Type.Name
+                            )
+                    )
+                    val bleeper = Subscription(Topic.fromOrThrow(ConfigMQTT.Publisher.BLEEPER, Topic.Type.Name))
+                    client2?.subscribe(setOf(config, bleeper))?.subscriptions?.forEach { (key, value) ->
+                        launch {
+                            when (key) {
+                                config -> {
+                                    value.collect {
+                                        val list = mutableListOf<Int>()
+                                        var temp = readOrNull(it)
+                                        while (temp != 0) {
+                                            list.add(temp)
+                                            it?.payload?.position()
+                                            temp = readOrNull(it)
+                                        }
+                                        println("${Date()}: config=[${list.joinToString()}]")
+                                    }
+                                }
+
+                                bleeper -> {
+                                    value.collect {
+                                        println("${Date()}: bleeper=${it.payload?.readByte()?.toInt() == 1}")
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
+    }
+
+    private fun readOrNull(message: IPublishMessage): Int {
+        return kotlin.runCatching { message.payload!!.readVariableByteInteger() }.getOrDefault(0)
     }
 
     private suspend fun initClient(clientId: String, username: String, password: String): MqttClient {
