@@ -16,7 +16,6 @@ import ru.zhuravlev.yuri.core.BuildConfig
 import ru.zhuravlev.yuri.emulator.producers.PirProducer
 import ru.zhuravlev.yuri.emulator.producers.TemperatureProducer
 import ru.zhuravlev.yuri.emulator.producers.WaterLevelProducer
-import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
 import java.util.*
 
@@ -52,13 +51,13 @@ class DeviceEmulator(emulateDevice1: Boolean, emulateDevice2: Boolean) {
                 context.launch {
                     TemperatureProducer(this).flow.collect {
                         println("${Date()}: temperature=$it")
-                        client1?.publish(TEMPERATURE, payload = writeInt(it))
+                        client1?.publish(TEMPERATURE, payload = write(it.toString()))
                     }
                 }
                 context.launch {
                     WaterLevelProducer(this).flow.collect {
                         println("${Date()}: water_level=$it")
-                        client1?.publish(WATER_LEVEL, payload = writeInt(it))
+                        client1?.publish(WATER_LEVEL, payload = write(it.toString()))
                     }
                 }
             }
@@ -66,7 +65,7 @@ class DeviceEmulator(emulateDevice1: Boolean, emulateDevice2: Boolean) {
                 context.launch {
                     PirProducer(this).flow.collect {
                         println("${Date()}: pir=$it")
-                        client2?.publish(PIR, payload = writeInt(if (it) 1 else 0))
+                        client2?.publish(PIR, payload = write((if (it) 1 else 0).toString()))
                     }
                 }
                 context.launch(SupervisorJob()) {
@@ -82,20 +81,13 @@ class DeviceEmulator(emulateDevice1: Boolean, emulateDevice2: Boolean) {
                             when (key) {
                                 config -> {
                                     value.collect {
-                                        val list = mutableListOf<Int>()
-                                        var temp = readOrNull(it)
-                                        while (temp != 0) {
-                                            list.add(temp)
-                                            it?.payload?.position()
-                                            temp = readOrNull(it)
-                                        }
-                                        println("${Date()}: config=[${list.joinToString()}]")
+                                        println("${Date()}: config=[${it.payload?.readUtf8Line()}]")
                                     }
                                 }
 
                                 bleeper -> {
                                     value.collect {
-                                        println("${Date()}: bleeper=${it.payload?.readByte()?.toInt() == 1}")
+                                        println("${Date()}: bleeper=${it.payload?.readUtf8Line()}")
                                     }
                                 }
                             }
@@ -119,10 +111,8 @@ class DeviceEmulator(emulateDevice1: Boolean, emulateDevice2: Boolean) {
         return service.addBrokerAndStartClient(connections, connectionRequest)
     }
 
-    private fun writeInt(value: Int): ReadBuffer {
-        val stream = ByteArrayOutputStream()
-        stream.write(value)
-        return JvmBuffer(ByteBuffer.wrap(stream.toByteArray()))
+    private fun write(value: String): ReadBuffer {
+        return JvmBuffer(ByteBuffer.wrap(value.toByteArray()))
     }
 
     companion object {
