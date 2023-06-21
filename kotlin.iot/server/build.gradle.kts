@@ -3,9 +3,16 @@ val kotlin_version: String by rootProject
 val logback_version: String by rootProject
 
 plugins {
+    id("io.ktor.plugin") version "2.3.1"
     application
     kotlin("jvm")
     kotlin("plugin.serialization") version "1.8.22"
+}
+
+ktor {
+    fatJar {
+        archiveFileName.set("iotSystem.jar")
+    }
 }
 
 application {
