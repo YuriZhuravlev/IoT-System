@@ -1,7 +1,18 @@
+import org.jetbrains.kotlin.gradle.plugin.mpp.pm20.util.archivesName
+
 plugins {
+    id("com.github.johnrengelman.shadow") version "7.1.2"
     application
     kotlin("jvm")
     kotlin("plugin.serialization") version "1.8.22"
+}
+
+shadow {
+    archivesName.set("deviceEmulator.jar")
+}
+
+application {
+    mainClass.set("ru.zhuravlev.yuri.emulator.MainKt")
 }
 
 repositories {

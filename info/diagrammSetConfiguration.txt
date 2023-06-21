@@ -1,7 +1,4 @@
 title: Создание конфигурации
-
-Client -> Server: setConfiguration()
-
 note:
 **Создание конфигурации** - при начале работы клиент отправляет параметры режима работы.
 
@@ -9,13 +6,29 @@ _Device 1_ - устройство с датчиком температуры и 
 
 _Device 2_ - устройство с датчиком движения и динамиком
 
+Client -> Server: POST: {$host}/config
+note:
+{"temperature": [int, int, int]}
 
-Server --> Device 1: setConfiguration()
+Server -> MQTT-брокер: config/configuration_temperature
+note:
+"[int, int, int]"
+
+MQTT-брокер --> Device 1: config/configuration_temperature
 note: Максимальный уровень воды и точки сигнализации о температуре
-Server --> Device 2: setConfiguration()
-Server --> Server: start getInfo()
-note: Запуск автоматического получения информации
-Device 1 --> Server: info[]
-Device 2 --> Server: info[]
 
-Server -> Client: success
+MQTT-брокер --> Device 2: config/configuration_temperature
+
+Server --> Client: new state by SSE
+note:
+{
+	"temperature":int,
+	"waterLevel":int,
+	"pirIsActive":boolean,
+	"nextTemperature":int
+}
+
+Server -> Client: 200
+
+Device 1 --> MQTT-брокер: info[]
+Device 2 --> MQTT-брокер: info[]

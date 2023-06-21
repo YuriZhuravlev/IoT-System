@@ -1,9 +1,4 @@
 title: Получение текущих данных
-
-
-Server --> Device 1: getInfo()
-Server --> Device 2: getInfo()
-
 note:
 **Получение текущих данных** запускается по _heartbeat_, либо при явном запросе клиента.
 
@@ -11,14 +6,30 @@ _Device 1_ - устройство с датчиком температуры и 
 
 _Device 2_ - устройство с датчиком движения и динамиком
 
-
 Device 1 -> Device 1: getSensorInfo()
-
 Device 2 -> Device 2: getSensorInfo()
 
+Device 1 --> MQTT-брокер: info[]
+note:
+topic: "state/temperature" → "int"
 
-Device 1 --> Server: info[]
-Device 2 --> Server: info[]
+topic: "state/water_level" → "int"
 
-Server -> Client: updateInfo()
+Device 2 --> MQTT-брокер: info[]
+note:
+topic: "state/pir" → "true" или "false"
+
+MQTT-брокер --> Server: info[]
+note:
+События по подписке topics: "state/*"
+
+Server --> Client: new state by SSE
+note:
+{
+	"temperature":int,
+	"waterLevel":int,
+	"pirIsActive":boolean,
+	"nextTemperature":int
+}
+
 Client -> Client: updateState()
