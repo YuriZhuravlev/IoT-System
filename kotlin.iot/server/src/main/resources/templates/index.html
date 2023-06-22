@@ -12,8 +12,15 @@
 <br>Events:
 <div id="event_id">
 </div>
+<a id="push_id" style="position: fixed; top: 10px; right: 10px;">
+</a>
 <script>
     async function initPage() {
+        sseSubscribe();
+        ssePushNotifications();
+    }
+
+    async function sseSubscribe() {
         let eventElement = document.getElementById("event_id");
         let eventSource = new EventSource('/subscribe');
         eventSource.addEventListener('state', e => {
@@ -23,6 +30,14 @@
         eventSource.addEventListener('error', e => {
             const error = JSON.parse(e.data);
             eventElement.insertAdjacentHTML('beforeend', "<br>" + new Date().toLocaleTimeString() + "\t error: " + error.error);
+        });
+    }
+
+    async function ssePushNotifications() {
+        let pushElement = document.getElementById("push_id");
+        let eventSource = new EventSource('/push');
+        eventSource.addEventListener('push', e => {
+            pushElement.textContent = new Date().toLocaleTimeString() + ": " + e.data;
         });
     }
 
