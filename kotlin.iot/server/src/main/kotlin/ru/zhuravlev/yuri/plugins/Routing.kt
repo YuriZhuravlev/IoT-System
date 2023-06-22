@@ -15,7 +15,10 @@ fun Application.configureRouting() {
         get("/subscribe") {
             ViewSSE.view(call)
         }
-        post("config") {
+        get("/push") {
+            ViewSSE.addPushSubscriber(call)
+        }
+        post("/config") {
             ViewSSE.updateConfig(call)
         }
     }

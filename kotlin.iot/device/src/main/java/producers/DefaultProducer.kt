@@ -23,7 +23,7 @@ abstract class DefaultProducer(
         coroutineScope.launch {
             while (_flow.value < maxValue) {
                 if (random.nextBoolean()) {
-                    _flow.emit(changeFun(_flow.value))
+                    _flow.emit(minOf(changeFun(_flow.value), maxValue))
                 }
                 delay(delayValue)
             }

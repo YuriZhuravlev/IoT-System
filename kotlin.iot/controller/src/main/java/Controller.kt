@@ -8,6 +8,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import ru.zhuravlev.yuri.core.NetworkWorker
 import ru.zhuravlev.yuri.core.PushSender
 import ru.zhuravlev.yuri.core.model.*
+import ru.zhuravlev.yuri.core.model.Consts.ATTENTION_WATER_LEVEL
+import ru.zhuravlev.yuri.core.model.Consts.NOTIFY_WATER_LEVEL
 
 class Controller(
         private val networkWorker: NetworkWorker,
@@ -92,10 +94,5 @@ class Controller(
             networkWorker.publish(temperature)
             _state.emit(_state.value.copy(configurationTemperature = temperature))
         }
-    }
-
-    companion object {
-        private const val NOTIFY_WATER_LEVEL = 90
-        private const val ATTENTION_WATER_LEVEL = 95
     }
 }

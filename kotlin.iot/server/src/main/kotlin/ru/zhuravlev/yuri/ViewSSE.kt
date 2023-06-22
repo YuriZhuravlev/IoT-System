@@ -13,22 +13,16 @@ import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import ru.zhuravlev.yuri.adapter.mqtt.NetworkWorkerMqtt
+import ru.zhuravlev.yuri.adapter.push.SimplePushSender
 import ru.zhuravlev.yuri.controller.Controller
-import ru.zhuravlev.yuri.core.PushSender
 import ru.zhuravlev.yuri.core.model.ConfigurationTemperature
 import ru.zhuravlev.yuri.core.model.Temperature
-import ru.zhuravlev.yuri.core.model.UserSignal
 import ru.zhuravlev.yuri.model.ConfigData
 import ru.zhuravlev.yuri.model.EventType
 import ru.zhuravlev.yuri.model.SystemData
 
 object ViewSSE {
-    private val pushSender = object : PushSender {
-        override fun sendPush(push: UserSignal.Push) {
-            println("Sending push: ${push.state}")
-            // TODO("add later")
-        }
-    }
+    private val pushSender = SimplePushSender()
 
     private val controller = Controller(NetworkWorkerMqtt(), pushSender)
 
@@ -90,5 +84,10 @@ object ViewSSE {
                 }
             }
         }
+    }
+
+    suspend fun addPushSubscriber(call: ApplicationCall) {
+        val events = pushSender.push.map { SseEvent(it, EventType.PUSH) }
+        call.respondSse(events)
     }
 }

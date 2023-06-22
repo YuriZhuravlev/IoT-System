@@ -37,4 +37,5 @@ dependencies {
     implementation(project(":core:model"))
     implementation(project(":controller"))
     implementation(project(":adapter:mqtt"))
+    implementation(project(":adapter:push"))
 }
