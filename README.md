@@ -6,6 +6,20 @@
 
 **info** – вспомогательная информация
 
+## Настройка и запуск
+Добавить файл `kotlin.iot/local.properties` с значениями MQTT аутентификации.
+```
+serverClientID=
+serverUsername=
+serverPassword=
+
+device1ClientID=
+device1Username=
+device1Password=
+device2ClientID=
+device2Username=
+device2Password=
+```
 
 Для запуска сервера:
 ```
