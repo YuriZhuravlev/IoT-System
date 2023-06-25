@@ -41,7 +41,7 @@ object ViewSSE {
     suspend fun updateConfig(call: ApplicationCall) {
         try {
             val config = Json.decodeFromString<ConfigData>(call.receiveText())
-            if (config.temperature.find { element -> element < 0 || element > 100 } == null) {
+            if (config.temperature.find { element -> element !in 0..100 } == null && config.temperature.isNotEmpty()) {
                 controller.setConfigTemperature(
                         ConfigurationTemperature(
                                 config.temperature.map { value -> Temperature(value) }
