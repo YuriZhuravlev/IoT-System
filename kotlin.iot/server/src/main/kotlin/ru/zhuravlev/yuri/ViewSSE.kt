@@ -28,16 +28,11 @@ object ViewSSE {
 
     suspend fun view(call: ApplicationCall) {
         val state = controller.state.map { state ->
-            val systemData = SystemData(
-                    state.temperature.value,
-                    state.waterLevel.value,
-                    state.pir.activeMoving,
-                    state.configurationTemperature.temperatures.getOrNull(state.temperatureIndex + 1)?.value
-            )
+            val systemData = SystemData.state(state)
             SseEvent(data = Json.encodeToString(systemData), EventType.STATE_EVENT)
         }
         val error = controller.error.map {
-            val systemData = SystemData(error = it.message)
+            val systemData = SystemData.error(it.message)
             SseEvent(data = Json.encodeToString(systemData), EventType.ERROR_EVENT)
         }
         call.respondSse(merge(error, state))
