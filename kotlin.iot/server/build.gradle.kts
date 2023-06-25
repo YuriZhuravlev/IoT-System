@@ -30,6 +30,7 @@ dependencies {
     implementation("io.ktor:ktor-server-core-jvm:$ktor_version")
     implementation("io.ktor:ktor-server-freemarker:$ktor_version")
     implementation("io.ktor:ktor-server-netty-jvm:$ktor_version")
+    implementation("io.ktor:ktor-server-status-pages:$ktor_version")
     implementation("ch.qos.logback:logback-classic:$logback_version")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.5.0")
 
